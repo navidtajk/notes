@@ -11,8 +11,8 @@
 
 \maketitle
 
-Notes based on various works of Karger and friends on sparse graphs which
-preserve cuts.
+Notes based on various works of Karger and friends (mainly~\cite{BK02}) on
+sparse graphs which preserve cuts. I don't really care about runtime here.
 
 \section{Definitions}
 
@@ -152,29 +152,6 @@ the value of the minimum cut in $G$. Moreover, if that value $\lambda^*$ is
 small, we barely get any sparsification: if $\lambda^*\eps^2 = O(1)$, then a
 constant factor of the edges are preserved in expectation.
 
-% Let's first implement a small optimization. Right now, edges with very small
-% capacity are as likely to appear in $G'$ as those with large capacity. This
-% doesn't feel right--if an edge has capacity $10^{-9}$, in some sense, it isn't
-% very important and should be left out most of the time. The fix is to change the
-% capacity once the edge is sampled: rather than sample with probability $p$ and
-% give capacity $c(e)$, we sample with probability $pc(e)$ and give capacity $1$
-% (recall that we would then divide the capacities by $p$ to get cuts directly
-% comparable to those in $G$). The analysis goes through the same, since each
-% edge's value is now a $\Set{0, 1}$ indicator rather than a $\Set{0, c(e)}$
-% indicator. Now how many edges survive in expectation?
-% \begin{align*}
-%   \E{\sizeof{E'}} = \sum_{e \in E}\Pr{e \in E'}
-%                   = \sum_{e \in E}pc(e)
-%                   = \E[c'(E)]
-%                   = pc(E)
-% \end{align*}
-% Compared to the old bound of $pm$, we get a slight win when edge capacity values
-% aren't uniformly distributed.
-
-% The general lesson from the above optimization is that, whenever possible, we
-% want to decrease the probability of an edge being sampled while increasing the
-% sampled edge's capacity.
-
 The following example illustrates the algorithm's inefficiency. Suppose $G$ is
 the unweighted union of two copies of $K_n$, joined by a single edge (a sort of
 ``dumbbell graph''). The min cut value in $G$ is $1$, so the sparsification
@@ -245,10 +222,10 @@ those in $G_1$, and we're done.
     where each preserve cuts.]
 \end{center}
 This suggests a more general algorithm that looks for subgraphs with high
-connectivity and samples down their edges much more aggressively. We next build
-out some definitions that let us formalize this. In fact, you already probably
-automatically do this in the special case of connected components--it's easy to
-see why we can assume WLOG that $G$ is connected.
+connectivity and samples down their edges much more aggressively\footnote{In
+fact, this is implicitly done in the special case of connected components--it's
+easy to see why we can assume WLOG that $G$ is connected.}. We next build out
+some definitions that let us formalize this.
 
 \subsection{Strong $\kappa$-Connectivity}
 
@@ -309,47 +286,77 @@ partitions.
 \subsection{Ideal Sparsification}
 
 Suppose we are given the edge strengths $\kappa_e$ for each $e \in E$. Let's try
-to extend the simple optimization for the dumbbell graph to this more general
-decomposition.
+to extend the decomposition technique from the dumbbell graphs.
 
-Suppose we were given the sequence of partitions $\Set{\P_i}_{i=0}^{n-1}$ from
-the above exercise (don't worry about running time).
-
-We again have our error parameter $\eps$. Denote the $\kappa$-strong
-connectivity of an edge $e$ by $\kappa_e$, note that this is the largest
-$\kappa$ for which $e$ does not cross $\P_\kappa$. For each $e \in E$, we
-include it in $E'$ with probability
+For each $e \in E$, we include it in $E'$ with probability
 $p_e = \bigTheta{\dfrac{\log n}{\kappa_e\eps^2}}$; its weight if sampled becomes
-$1/p_e$\footnote{We technically cap $p_e$ at $1$, but we ignore this to clean
-things up.}.
+$1/p_e$.\footnote{We technically cap $p_e$ at $1$, but we ignore this to clean
+things up.}
 
-In $G_1$, we include all edges, each with capacity $c_1(e) = c(e)/\kappa_e$.
-That is, we scale down clique edges a $\sqrt{n}$ factor more than bridge edges.
-In $G_2$, we include only edges in the cliques, also with
-$c_2(e) = c(e)/\kappa(e)$ (everything is uniformly scaled here). Note that $G_2$
-has two connected components. We'll sample edges with probability $p_e$; their
-sampled weight in $G_i$ is $c_i(e) / p_e$. The important feature of this is
-that, in $G_1$, we stop samples in the cliques from dominating cuts (since we
-scaled their capacities down), and $G_2$ is just the union of two cliques.
+We consider the following collection of graphs: for $\kappa < n$, let $G_\kappa$
+denote $G$ restricted to edges of strength at least $\kappa$. If an edge is
+included in $G_\kappa$, it is given capacity $1/\kappa_e$. Let $G_\kappa'$
+denote $G_\kappa$ restricted to sampled edges; each has capacity
+$c_\kappa(e)/p_e$. Now fix $\kappa$. We want to argue that $G_\kappa'$ preserves
+cuts. It sufficed to argue this for a connected component $C$ of $G_\kappa$.
 
-Consider $G_1$. We claim that it has minimum cut at least $1$.
-
-: For any cut $U \subseteq V$, we have
+We claim that $C$ has minimum cut at least $1$. For any cut $U \subseteq V$, we
+have
 \begin{align*}
-  c_1(\cut{U}) =    \sum_{e \in \cut{U}}c_1(e)
-               =    \sum_{e \in \cut{U}}c(e)/\kappa_e
-               \geq \sum_{e \in \cut{U}} \frac{c(e)}{c(\cut{U})}
-               =    1,
+  c_{G_\kappa}(\cut{U}) =    \sum_{e \in \cut{U}}\frac{c(e)}{\kappa_e}
+                        \geq \sum_{e \in \cut{U}} \frac{c(e)}{c(\cut{U})}
+                        =    1,
 \end{align*}
 where the inequality is because the cut $U$ certifies that
-$\kappa_e \leq c(\cut{U})$ for each $e \in \cut{U}$. If sampled, any $e \in E$
-contributes
+$\kappa_e \leq c(\cut{U})$ for each $e \in \cut{U}$. (Why? This is a little
+subtle).
+
+If an edge is in $G_\kappa'$, it has weight
 \[
-  c_1(e)/p_e = \bigO{\frac{c(e)\kappa_e \log n}{\kappa_e \eps^2}}
+  c_\kappa(e)/p_e = \bigO{\eps^2/\log n}.
 \]
+That is, the edge contributes $\eps^2/\log n$ fraction of the min cut. This
+immediately implies that $G_\kappa'$ preserves cuts in $G_\kappa$ to a
+$(1 \pm \eps)$ factor.
+
+We can write $G$ as
+\[
+  G = \sum_{\kappa=1}^{n-1} G_\kappa,
+\]
+and by a union bound over all $n$ subgraphs, we preserve all cuts with high
+probability.
+
+\subsection{Number of Edges}
+
+Of course, we still need to show that $G'$ is a small number of edges. Since an
+edge $e$ is sampled with probability $\log n / (\kappa_e \eps^2)$, we have
+\[
+  \E{\sizeof{E'}} = \sum_{e \in E} \frac{\log n}{\kappa_e \eps^2}
+                  = \prac{\log
+    n}{\eps^2}\sum_{e \in E} 1/\kappa_e.
+\]
+
+We can bound the last term with the following induction. We claim that
+$\sum_{e \in E} 1/\kappa_e$ is bounded by $n - 1$. In the base case with a
+single vertex, this is true ($\kappa_e$ is technically infinite). Otherwise
+consider a min-cut $U$ of $G$. The edges in $\cut{U}$ all have strength at least
+$\sizeof{\cut{U}}$ (since $\sizeof{\cut{U}}$ is the connectivity of $G$). Then,
+\begin{align*}
+  \sum_{e \in E}1/\kappa_e & = \sum_{e \in \cut{U}}1/\kappa_e + \sum_{e \in G[U]} 1/\kappa_e + \sum_{e \in G[V \setminus U]} 1/\kappa_e                      \\
+                           & \leq 1 + \sizeof{U} - 1 + \sizeof{V \setminus U} - 1                                                       & \text{(induction)} \\
+                           & = n - 1.
+\end{align*}
+Note that the induction works because, while edge strengths may decrease in
+subgraphs, the bounds on edge strengths is based on the connectivity of the
+subgraph. (FIX)
+
+We are left with a sparsification algorithm that gives $\bigO{n \log n /
+  \eps^2}$ edges in expectation (and with high probability, why?).
 
 \section{Generalizing to Weighted Graphs}
 
+Generalizing is mainly busywork\dots Essentially replace $1$ with $c(e)$ where
+appropriate.
 \printbibliography
 
 \end{document}
