@@ -1,0 +1,355 @@
+\documentclass[12pt]{article}
+\usepackage[ left=0.5in,right=0.5in ]{geometry}
+\usepackage{../styles/ntalgo}
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\addbibresource{refs.bib}
+
+\begin{document}
+
+\title{Karger Stuff}
+\author{Navid Tajkhorshid}
+
+\maketitle
+
+Notes based on various works of Karger and friends on sparse graphs which
+preserve cuts.
+
+\section{Definitions}
+
+We're working with an undirected, possibly weighted graph $G = (V, E)$. Let
+$c : E \to \R_{\geq 0}$ denote a capacity function on the edges; if $G$ is
+unweighted, $c \equiv 1$. A \emph{cut} is a set of vertices
+$\emptyset \neq U \subsetneq V$. The capacity of this cut is
+$c(\cut{U}) \defeq \sum_{e \in \cut{U}}c(e)$. I'll also use cut to refer to the
+set of edges leaving $U$, when the context is clear. Generally, we're interested
+in the values of various cuts. We start by looking at the minimum cut.
+
+\section{Karger's Algorithm}
+
+This is a very slick algorithm to compute the minimum cut in $G$. While $G$ has
+more than 2 vertices, we pick a random edge $e = (u, v)$ proportional to its
+capacity (that is, the chance of picking $e$ is $\frac{c( e )}{C(E)}$). We then
+contract this edge: merge the vertices $u$ and $v$ into a new vertex $w$, with
+edges $(w, x)$ for all original edges $(u, x)$ and $(v, x)$ (note that the graph
+may become a multigraph). When we get down to two vertices $u$ and $v$, output
+$E(\Set{u}, \Set{v})$.
+
+To argue that the outputted $S$ is a good cut, we'll fix some minimum cut $S^*$
+and analyze its chance of survival throughout the algorithm (that is, the chance
+that no edge in $S^*$ is contracted). Let $\lambda^* = c(S^*)$. The chance we
+contract an edge in $S^*$ in a given step is the $c(S^*)/c(E)$ (note that $E$
+represents the remaining edges after some steps of contraction). The total
+weight of all edges is $c(E)$, so the average weight of the singleton cuts
+$\Set{v}$ for each $v \in V$ is $2c(E)/n$ (each edge is counted twice). This
+means some singleton has weight at most $2c(E)/n$, which cannot be smaller than
+$\lambda^*$. The probability of failure is then at most
+\[
+  \frac{2c(E)/n}{c(E)} = \frac{2}{n}.
+\]
+The chance of survival is $1 - \frac{2}{n} = \frac{n - 2}{n}$, so over all steps
+we have
+\begin{align*}
+  \Pr{S^* \text{ survives}} \geq \prac{n - 2}{n}\prac{n - 3}{n - 1}\prac{n - 4}{n - 2}\cdots\prac{2}{4}\prac{1}{3}
+                            =    \frac{2}{n(n - 1)}
+                            =    1\bigg/\binom{n}{2}.
+\end{align*}
+
+Naively, one can repeat the algorithm $\bigO{n^2\log n}$ times and return the
+best cut with a high probability guarantee. There is also more one can do to
+achieve better running time, but we're not interested in that right now.
+
+\subsection{Bounding Cuts}
+
+An interesting feature of the argument above is that it works for any specified
+min cut $S^*$. Since the algorithm returns any min cut with probability at least
+$\binom{n}{2}^{-1}$, there can be at most $\binom{n}{2}$ distinct min cuts in
+$G$. Note that this is achieved by the graph $C_n$--any pair of edges
+disconnects the graph.
+
+It will be useful to generalize this bound to the number of
+\emph{$\alpha$-approximate} min cut (a min cut of value at most
+$\alpha\lambda^*$). By rounding $\alpha$ up, assume it's an integer. If we try
+to step through the same analysis--this time with a failure probability per step
+bounded by $\frac{2\alpha}{n}$--we run into an issue when $n$ gets too small.
+
+We can fix this via early termination: When $n \leq 2\alpha$ stop the algorithm.
+Note for $\alpha = 1$ this is the same as $n \leq 2$, i.e.\ it's identical to
+the standard algorithm. The probability that an $\alpha$-approximate min cut
+survived is at least
+\begin{align*}
+  \prac{n - 2\alpha}{n}\prac{n - 2\alpha - 1}{n - 1}\prac{n - 2\alpha - 2}{n - 2}\cdots\prac{2}{2\alpha + 2}\prac{1}{2\alpha + 1}
+  = \frac{(2\alpha)(2\alpha - 1)\cdots(2)(1)}{n(n - 1)\cdots(n - 2\alpha + 1)}
+  = 1\bigg/\binom{n}{2\alpha}.
+\end{align*}
+Note however, that since we terminated when $n = 2\alpha$, there can be many
+cuts that survived. In particular, there are $2^{2\alpha-1} - 1$ such cuts (for
+each cut, count the smaller, nonempty side). There are thus at most
+$\binom{n}{2\alpha}2^{2\alpha-1}$ approximate minimum cuts. Since
+$(2\alpha)! \leq 2^{2\alpha-1}$, we have
+\begin{align*}
+  \binom{n}{2\alpha}2^{2\alpha-1} \leq n^{2\alpha}
+\end{align*}
+as an upper bound.
+
+\section{Preserving Cuts}
+
+\def\U{\mathcal{U}}
+
+Suppose we want to approximate find the min-cut in a graph, and say $G$ is
+dense. It would be nice to operate on a sparser graph. In particular, say we
+could compute a graph $G' = (V, E, c')$ such that every cut $U \subseteq V$ in
+$G'$ obeyed
+\[
+  (1 - \eps)c(\cut{U}_G) \leq c'(\cut{U}_{G'}) \leq (1 + \eps)c(\cut{U}_G),
+\]
+that is, the cuts in $G'$ approximate those in $G$. Then computing an
+approximate min cut in $G'$ would give an approximate min cut in $G$. A simple
+idea is to sample down the number of edges and scale capacities up: pick some
+probability $p$, include $e \in E$ into $G'$ with probability $p$ and set
+$c'(e) \defeq c(e)/p$. It's not hard to see that
+$\E{c'(\cut{U}_{G'})} = c(\cut{U}_G)$ for every $U \subseteq V$.
+
+Expectation isn't good enough, of course. Let's fix a cut $U \subseteq V$ and
+see how concentrated $c(\cut{U}_{G'})$ is about its expectation. We want a
+multiplicative bound, so we don't have to worry about the scaling. Also scale
+capacities so that $c(e) \leq 1$ for each edge. Then,
+$c(\cut{U}_{G'}) = \sum_{e \in \cut{U}_G}c(e)X_e$, where $X_e$ is the indicator
+for $e$ being sampled. Let $X$ denote this random sum--$\E{X} = pc(\cut{U}_G)$.
+By a standard Chernoff inequality, we have
+\[
+  \Pr{X \notin (1 \pm \eps)\E{X}} \leq 2e^{-\E{X}\eps^2/3}
+                                  =    2e^{-pc(\cut{U}_G)\eps^2/3}.
+\]
+To get a high probability guarantee, we'd want $p \geq \bigOmega{\frac{\log
+    n}{\eps^2 c(\cut{U}_G)}}$ for every cut $U$. So let's set $p = \bigTheta{\frac{\log n}{\eps^2 \lambda}}$, where $\lambda$ is some estimate of
+the minimum cut value which we assume is accurate up to constant factors. Then
+we get that a given cut is preserved with high probability. Unfortunately, there
+are $\bigTheta{2^n}$ cuts, so we can't do a naive union bound. There is hope
+though: from the discussion above, the number of cuts with small values is
+polynomial. The larger the value of a cut is, the more aggressive a bound we get
+from the analysis. To formalize this, let $\U_\alpha$ denote the set of cuts
+whose value is between $\alpha\lambda^*$ and $2\alpha\lambda^*$. By the bound
+above, $\sizeof{\U_\alpha} \leq \bigO{n^{4\alpha}}$, since each cut is
+$2\alpha$-approximate. Now consider a cut $U \in \U_\alpha$. Running through the
+probability bounds again, we get
+\[
+  \Pr{\text{$U$ isn't adequately preserved}}
+  \leq 2e^{-\bigOmega{pc(\cut{U}_G)\eps^2}}
+  =    2e^{-\bigOmega{\prac{\log n}{\eps^2\lambda^*}\alpha\lambda^*\eps^2}}
+  =    2n^{-\bigOmega{\alpha}}.
+\]
+Then, by a union bound over all $\bigO{n^{4\alpha}}$ elements, we have a high
+probability guarantee for $\U_\alpha$ being preserved. We can do this for all
+$\alpha$ up through $n$. For the remaining cuts of size larger than
+$n\lambda^*$, each is preserved with probability $1 - n^{-\bigOmega{n}}$, so a
+bound over all $2^n$ cuts suffices.
+
+\subsection{Better Bounds?}
+
+In the remainder of this section, assume $G$ is unweighted. The obvious
+weaknesses of the above approach are two-fold. First, it requires an estimate on
+the value of the minimum cut in $G$. Moreover, if that value $\lambda^*$ is
+small, we barely get any sparsification: if $\lambda^*\eps^2 = O(1)$, then a
+constant factor of the edges are preserved in expectation.
+
+% Let's first implement a small optimization. Right now, edges with very small
+% capacity are as likely to appear in $G'$ as those with large capacity. This
+% doesn't feel right--if an edge has capacity $10^{-9}$, in some sense, it isn't
+% very important and should be left out most of the time. The fix is to change the
+% capacity once the edge is sampled: rather than sample with probability $p$ and
+% give capacity $c(e)$, we sample with probability $pc(e)$ and give capacity $1$
+% (recall that we would then divide the capacities by $p$ to get cuts directly
+% comparable to those in $G$). The analysis goes through the same, since each
+% edge's value is now a $\Set{0, 1}$ indicator rather than a $\Set{0, c(e)}$
+% indicator. Now how many edges survive in expectation?
+% \begin{align*}
+%   \E{\sizeof{E'}} = \sum_{e \in E}\Pr{e \in E'}
+%                   = \sum_{e \in E}pc(e)
+%                   = \E[c'(E)]
+%                   = pc(E)
+% \end{align*}
+% Compared to the old bound of $pm$, we get a slight win when edge capacity values
+% aren't uniformly distributed.
+
+% The general lesson from the above optimization is that, whenever possible, we
+% want to decrease the probability of an edge being sampled while increasing the
+% sampled edge's capacity.
+
+The following example illustrates the algorithm's inefficiency. Suppose $G$ is
+the unweighted union of two copies of $K_n$, joined by a single edge (a sort of
+``dumbbell graph''). The min cut value in $G$ is $1$, so the sparsification
+algorithm would keep every edge ($\frac{\log n}{\eps^2} \geq 1$). This is quite
+wasteful: a less oblivious algorithm could separately sparsify the two cliques,
+which have minimum cut value $n - 1 \approx n$, and keep the edge between them
+with probability 1. This leads to
+$\bigO{n^2\log n/(n\eps^2)} = \bigO{n\log n /\eps^2}$ remaining edges! Note that
+we have to worry about scaling now that sampling probabilities are
+nonuniform--sampled edges within the cliques get weight $n\eps^2/\log n$ while
+the bridge gets weight $1$.
+
+\begin{center}
+  [Insert figure of dumbell graph turning into sparsified one]
+\end{center}
+\begin{xydiagram}
+  K_n \ar@{-}[rr]^{\text{1}} &  & K_n
+\end{xydiagram}
+
+Every cut in $G$ decomposes into cuts in the cliques (with are preserved whp),
+and perhaps the single nonempty cut along the ``bridge'' edge. The bridge edge
+is preserved, and cuts within the cliques are preserved to $1 \pm \eps$, so all
+cuts are adequately preserved.
+
+Let's try a harder case: Suppose now $G$ consists of two cliques joined by
+$\bigTheta{\sqrt{n}}$ bridge edges. Of course, we can sample down the cliques
+like before and keep every bridge, but in some soft sense this is wasteful, and
+it's not hard to come up with examples where this doesn't work\footnote{Indeed,
+we can include a dense graph with connectivity $\sqrt{n}$ in the middle of the
+bridges; including all its edges would kill any asymptotic sparsification.}.
+Really, we'd like to sample down the bridge edges as well: if a sampling
+probability of $\frac{\log n}{n\eps^2}$ works for the cliques of connectivity
+$\bigTheta{n}$, maybe we can be brave and sample down the bridge edges with
+connectivity $\bigTheta{\sqrt{n}}$ with probability
+$\frac{\log n}{\sqrt{n}\eps^2}$. Again, each edge, if sampled, is included in
+$G'$ with capacity reciprocal to its sampling probability.
+
+Arguing that cuts are preserved becomes much trickier. The main annoyance is
+that cuts that involve bridge edges can be polluted by clique edges.
+Concentration bounds can't work since sampled clique edges have large weight.
+The trick is the following. We'll write $G$ as the weighted sum of three
+capacitated graphs $G_1$, $G_2$, and $G_3$. In $G_1$, we'll include all edges,
+but set the weight of clique edges to $1/\sqrt{n}$. $G_2$ and $G_3$ are copies
+of the cliques. We sample an edge with probability $p_e$ still; the downsampled
+$G_i$s ($G_i'$) contain $e$ with $1/p_e$ times its weight in each. We want to
+show that cuts are preserved within a $(1 \pm \eps)$ factor in each of these
+graphs; if we have this, then cuts are also preserved in
+\[
+  G = G_1 + \paren{1 - 1/\sqrt{n}}(G_2 + G_3)
+\]
+(exercise). This is clear for $G_2$ and $G_3$, since their min cut is
+$\bigTheta{n}$.
+
+The minimum cut in $G_1$ (like in $G$) has value $\bigTheta{\sqrt{n}}$: if any
+clique is cut we it automatically captures at least $(n - 1)/\sqrt{n}$ capacity;
+otherwise it cuts all $\sqrt{n}$ unit-weight bridge edges. A sampled edge
+contributes
+\[
+  \bigO{\frac{\sqrt{n}\eps^2}{\log n}} = \bigO{\frac{\lambda_1^*\eps^2}{\log n} }
+\]
+capacity (clique edges were scaled down for this reason), that is, each
+contributes a $\frac{\eps^2}{\log n}$ fraction of the min cut. From the previous
+section, we know that all cuts in $G_1'$ are within a $(1 \pm \eps)$ factor of
+those in $G_1$, and we're done.
+
+\begin{center}
+  [Figure: $G$ as a conic combination of $G_1$, $G_2$, and $G_3$,
+    where each preserve cuts.]
+\end{center}
+This suggests a more general algorithm that looks for subgraphs with high
+connectivity and samples down their edges much more aggressively. We next build
+out some definitions that let us formalize this. In fact, you already probably
+automatically do this in the special case of connected components--it's easy to
+see why we can assume WLOG that $G$ is connected.
+
+\subsection{Strong $\kappa$-Connectivity}
+
+Recall some definitions: a graph $G$ is $\kappa$-connected (or has connectivity
+$\kappa$) the min cut is at least $\kappa$. Two vertices $u$ and $v$ are
+$\kappa$ connected is the min $(u, v)$-cut has value at least $\kappa$. A
+stronger notion is the following.
+\begin{definition}
+  A pair of vertices $u$ and $v$ (or an edge $(u, v)$) is
+  \emph{$\kappa$-strongly connected} if there is some $U \subseteq V$ containing
+  $u$ and $v$ such that $G[U]$ has connectivity at least $\kappa$.
+\end{definition}
+
+Observe that $\kappa$-strong connectivity is an equivalence relation. The only
+interesting part is transitivity, so consider $u, v, w$ where $u, v$ and $v, w$
+are $\kappa$-strongly connected. We then have sets $U_1 \ni u, v$ and
+$U_2 \ni v, w$ such that the corresponding subgraphs are $\kappa$-connected. We
+claim that $G[ U_1 \cup U_2 ]$ is also $\kappa$-connected. The reason is that
+$U_1$ and $U_2$ have nonempty intersection, so any cut of their union must cut
+one of the subsets.
+
+There is another more algorithmic way to see the equivalence relation, where we
+build the partition into equivalence classes:
+% badness-format skip
+\begin{centeralgo}
+  \textsc{Split}($G, \kappa$):\+
+  \\ If $G$ has connectivity $\kappa$, return $\Set{V}$
+  \\ Otherwise, let $U$ be a cut of value less than $\kappa$
+  \\ return $\textsc{Split}(G[U], \kappa) \cup \textsc{Split}(G[V \setminus U], \kappa)$
+\end{centeralgo}
+
+Correctness comes down to two observations. First, it is clear that no pair of
+vertices separated by $U$ can be $\kappa$-strongly connected. Second, if, say
+$u, v \in U$ are $\kappa$-strongly connected, then the any witness set $U'$
+cannot cross $U$: if it did, then then $U \cap U'$ would be a cut with value
+less than $\kappa$ in $G[U']$. We'll call the subgraphs induced by these
+components \emph{$\kappa$-strongly connected components}.
+
+The second observation also implies that the partition gets finer as $\kappa$
+increases. For $\kappa_1 < \kappa_2$, any equivalence class under $\kappa_2$
+must be contained in an equivalence class under $\kappa_1$.
+
+A useful way to think about these is as a sequence of finer and finer
+partitions.
+\def\P{\mathcal{P}}
+\begin{exercise}
+  % TODO: This is technically ill-formed
+  Modify the algorithm above to output a sequence of partitions
+  $\P_0, \P_1, \dots, \P_{n-1}$, where $\P_i$ induces the set of $i$-strongly
+  connected components in $G$,
+\end{exercise}
+
+\begin{center}
+  Figure: A graph getting decomposed into stronger and stronger components. At
+  least 3 levels of decomposition.
+\end{center}
+
+\subsection{Ideal Sparsification}
+
+Suppose we are given the edge strengths $\kappa_e$ for each $e \in E$. Let's try
+to extend the simple optimization for the dumbbell graph to this more general
+decomposition.
+
+Suppose we were given the sequence of partitions $\Set{\P_i}_{i=0}^{n-1}$ from
+the above exercise (don't worry about running time).
+
+We again have our error parameter $\eps$. Denote the $\kappa$-strong
+connectivity of an edge $e$ by $\kappa_e$, note that this is the largest
+$\kappa$ for which $e$ does not cross $\P_\kappa$. For each $e \in E$, we
+include it in $E'$ with probability
+$p_e = \bigTheta{\dfrac{\log n}{\kappa_e\eps^2}}$; its weight if sampled becomes
+$1/p_e$\footnote{We technically cap $p_e$ at $1$, but we ignore this to clean
+things up.}.
+
+In $G_1$, we include all edges, each with capacity $c_1(e) = c(e)/\kappa_e$.
+That is, we scale down clique edges a $\sqrt{n}$ factor more than bridge edges.
+In $G_2$, we include only edges in the cliques, also with
+$c_2(e) = c(e)/\kappa(e)$ (everything is uniformly scaled here). Note that $G_2$
+has two connected components. We'll sample edges with probability $p_e$; their
+sampled weight in $G_i$ is $c_i(e) / p_e$. The important feature of this is
+that, in $G_1$, we stop samples in the cliques from dominating cuts (since we
+scaled their capacities down), and $G_2$ is just the union of two cliques.
+
+Consider $G_1$. We claim that it has minimum cut at least $1$.
+
+: For any cut $U \subseteq V$, we have
+\begin{align*}
+  c_1(\cut{U}) =    \sum_{e \in \cut{U}}c_1(e)
+               =    \sum_{e \in \cut{U}}c(e)/\kappa_e
+               \geq \sum_{e \in \cut{U}} \frac{c(e)}{c(\cut{U})}
+               =    1,
+\end{align*}
+where the inequality is because the cut $U$ certifies that
+$\kappa_e \leq c(\cut{U})$ for each $e \in \cut{U}$. If sampled, any $e \in E$
+contributes
+\[
+  c_1(e)/p_e = \bigO{\frac{c(e)\kappa_e \log n}{\kappa_e \eps^2}}
+\]
+
+\section{Generalizing to Weighted Graphs}
+
+\printbibliography
+
+\end{document}

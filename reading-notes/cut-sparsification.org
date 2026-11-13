@@ -1,0 +1,2 @@
+#+LaTeX_HEADER: \usepackage[nohyperref]{/Users/Navid/Research/notes/styles/ntalgo}
+https://arxiv.org/pdf/cs/0207078

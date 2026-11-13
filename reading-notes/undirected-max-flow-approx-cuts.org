@@ -1,0 +1,109 @@
+#+LaTeX_HEADER: \usepackage[nohyperref]{/Users/Navid/Research/notes/styles/ntalgo}
+
+https://arxiv.org/pdf/1304.2077
+** Probably Preliminaries
+ * Working with undirected capacitated graph \(G = (V, E, c)\).
+ * The paper frames the problem as routing a demand vector \(d \in \R^V\) with a flow
+   that minimizes congestion, that is, find \(f\) minimizing
+   \[ \max_{e \in E}\Set{\frac{f(e)}{c(e)}}.\]
+   We can state this more linear-algebraically. Fix some arbitrary direction to
+   the edges. Let \(B \in \R^{V \times E}\) be the natural vertex-edge incidence matrix:
+   \begin{align*}
+   B_{x, (u, v)} \defeq
+   \begin{cases}
+     +1 & \text{if $x = u$} \\
+     -1 & \text{if $x = v$} \\
+     1 & \text{otherwise} \\
+   \end{cases}.
+   \end{align*}
+   Then the net flow out of any vertex \(u\) is simply \((Bf)_u\). We can state the goal as
+   finding \(f\) such that \(Bf = d\), while minimizing congestion. Note that to be
+   feasible, we must have \(\sum_{u \in V} d_u = 0\).
+ * The problem is really no harder than \((s, t)\)-flow. For some \(\beta\), consider the
+   following construction. Add vertices \(s\) and \(t\) to the graph. For every vertex
+   \(u\) with \(d_u < 0\), add an edge \((s, u)\) of weight \(-\beta d_u\). Similarly, for each \(u\) with
+   \(d_u > 0\), add an edge \((u, t)\) of weight \(\beta d_u\). Then \(d\) can be routed with congestion
+   \(\beta\) if and only if the max flow from \(s\) to \(t\) is \(\outdeg{ s } = \indeg{ t }\) (here and
+   throughout, degree is weighted).
+ * The below norm-based thing feels interesting because the objective can be
+   reasonably approximated by, say, the \(\ell_2\) norm (or really and norm). This opens
+   the door to gradient descent-style algorithms that work on well-behaved
+   functions. This also puts the problem in a nice context of Laplacian
+   minimization problems:
+   \[\min \norm{x} \text{ s.t. } Ax = b.\]
+ * Min-congestion seems to be a more natural way of specifying the problem.
+   Letting \(C \in \R^{E \times E}\) denote the diagonal matrix with edge capacities, the
+   objective to minimize is \(\norm{C^{-1}f}_{\infty}\). The
+   natural LP-like formulation becomes
+   \begin{align*}
+     \min \norm{C^{-1}f}_\infty \text{ s.t. } Bf = d,
+   \end{align*}
+   while its dual is
+   \begin{align*}
+     \max d^T x \text{ s.t. } \norm{CB^Tx}_1 \leq 1.
+   \end{align*}
+ * Consider the second program. For some \((u, v) \in E\), \((B^T x)_{(u, v)} = x_u - x_v\); the
+   constraint is saying that
+   \[1 \geq \sum_{(u, v) \in E} c_{u, v}\sizeof{x_u - x_v} \]
+   What does this mean? Is there a way to see how a feasible \(x\) gives a natural
+   lower bound for the min congestion? If we have a cut \(S \subseteq V\), how can we lower
+   bound the min congestion? Let \(d_S = \sum_{u \in S} d_u\) be the net demand of \(S\) (note the
+   this is the negative of \(d_{V \setminus S}\)). There must be at least \(d_S\) flow out of \(S\).
+   Letting \(c_S\) denote the total capacity of edges in \(\cut{S}\), some edge must have
+   load at least the average. That is, for any flow \(f\), there must be some \(e
+   \in \cut{S}\) with
+   \[\frac{f_e}{c_e} \geq \frac{f_{\cut{S}}}{c_S} \geq \frac{d_S}{c_S}.\]
+   If we set \(x_u = [u \in S]/c_S\), we recover this bound as feasible in our LP.
+   Now to show tightness. Let \(x\) be any feasible solution. Let \(c_x = \sum_{u
+   \in V}x_uc_u\)
+   (this is a generalization of \(c_S\)). Pick a threshold \(\theta\) uniformly at random
+   between 0 and \(c_x\) and set \(S = \Set{v
+   \in V \mid x_v \leq \theta}\). What is the expectation of \(d_S\)?
+   Each vertex \(u\) is in \(S\) with probability
+   \[\Pr{x_u \leq \theta} = TODO\]
+
+** Congestion Approximators
+These are dual to oblivious routings, I think (these are cuts that lower bound
+the congestion of any demand, whereas ORs are schemes for routing any demand
+with some low congestion (i.e. they upper bound the min congestion)).
+
+There seem to be a few definitions of these. An easy one is the following:
+\begin{definition}
+  An \(\alpha\)-\emph{congestion approximator} \(\mathcal{S} = \Set{S_1, \dots, S_k}\)
+  is a set of cuts \(S_i \subseteq V\) such that, for any demand \(d\) on the vertices,
+  we have
+  \[\alpha\max_i \frac{d_{S_i}}{c_{S_i}} \geq \text{OPT}_d\]
+\end{definition}
+The power is when the approximator consists of a small number of cuts. Given \(k\)
+cuts, we can package this data into a matrix: Let \(B\) be a \(k \times n\) matrix
+defined by \(B_{i, u} \defeq \dfrac{[u
+\in S_i]}{c_{S_i}}\). Then the congestion bound can be compactly formulated as
+\(\norm{Bd}_\infty \leq \text{OPT}_d \leq \alpha\norm{Bd}_\infty\) for any \(d \in \R^V\). The first bound is because the
+congestion on an edge leaving \(S\) must be at least the average congestion over \(S\),
+and at least \(\sum_{u \in S}d_u\) units of flow leave the cut. A good congestion approximator
+("good" meaning one with small \(\alpha\)) gives us a tight range for the optimal congestion.
+
+It's useful to look at a few examples of these approximators.
+
+*** Maximum Spanning Tree
+A natural set of cuts is those that arise from some spanning tree. For a
+spanning tree \(T\) and \(e \in T\), let \(S_e\) denote the cut induced by removing \(e\)
+from \(T\). We want these cuts to be big (why?), so let's choose a maximum spanning
+tree. Recall that the cut property of MSTs implies that each \(e \in T\) accounts for
+at least a \(1/m\) fraction of the capacity of \(S_e\). Now fix an optimal flow \(f\).
+Via the (congestion generalization of) the max-flow/min-cut theorem, there is
+some \(S^* \subseteq V\) that has \(d_{S^*}/c_{S^*}\) equal to the congestion of \(f\). \(T\) contains at least
+a \(1/m\) fraction of the weight of \(\cut{S^*}\), so....
+
+*** Expander
+A \(\phi\)-expander is a graph \(G\) where, for every set \(S\) of less than half the
+vertices, we have \(c(\cut{S}) \geq \phi \sum_{u \in S} \deg{u}\). Suppose \(G\) is a \(\phi\)-expander. Then we can
+take the trivial singleton cuts \(\Set{u}\) for every \(u \in V\). 
+
+** Constructing Congestion Approximators
+*** J-Trees
+See [file:madry-j-tree-decomp.org]. The object is a /j tree/, which is a
+collection of j rooted trees where edges are allowed to be between the roots.
+
+*** Sparsification
+See [file:cut-sparsification.org]

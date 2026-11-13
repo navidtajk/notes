@@ -1,4 +1,15 @@
 % badness-format skip-file: Hand-arranged
+
+% Org latex previews hate hyperref (for good reason)
+\newif\ifntalgo@hyperref \ntalgo@hyperreftrue
+\DeclareOption{nohyperref}{\ntalgo@hyperreffalse}
+\ProcessOptions\relax
+
+\ifntalgo@hyperref
+  \RequirePackage{hyperref}
+  \hypersetup{hidelinks}
+\fi
+
 \RequirePackage{xparse}
 \RequirePackage{mleftright}
 \RequirePackage{amsthm}
@@ -6,12 +17,13 @@
 \RequirePackage{qtree}
 \RequirePackage{graphicx}
 \RequirePackage[dvipsnames]{xcolor}
-\RequirePackage[hidelinks]{hyperref}
 \RequirePackage{amsfonts}
 \RequirePackage{amsmath}
 \RequirePackage{amssymb}
 \RequirePackage{mathrsfs}
 \RequirePackage{mathtools}
+\RequirePackage{enumitem}
+\RequirePackage{xypic}
 
 % Theorems and such
 \newtheorem{lemma}{Lemma}
@@ -23,10 +35,11 @@
 \theoremstyle{remark}
 \newtheorem*{remark}{Remark}
 
+\newtheorem*{exercise}{Exercise}
+
 \theoremstyle{remark}
 \newtheorem*{nudge}{Nudge} % To get the reader to think, but not literally an exercise
 
-% badness-format skip
 \newenvironment{algo}
 {
   \begin{tabular}{|l|}
@@ -71,6 +84,17 @@
 \def\floor#1{\mleft\lfloor#1\mright\rfloor}
 \def\ceil#1{\mleft\lceil #1 \mright\rceil}
 
+% \newfunction[<wrapper>]{<command>}{<symbol>}
+\NewDocumentCommand{\newfunction}{O{\paren} m m}{%
+  \DeclareDocumentCommand{#2}{e{_} g e{_}}{%
+    #3%
+    \IfValueTF{##1}{_{##1}}{%
+      \IfValueT{##3}{_{##3}}%
+    }%
+    \IfValueT{##2}{#1{##2}}%
+  }%
+}
+
 % Semantic aliases
 \def\Set#1{\brace{#1}}
 \def\sizeof#1{\bars{#1}}
@@ -79,53 +103,32 @@
 \def\prac#1#2{\paren{\frac{#1}{#2}}}
 
 %%%% Algo functions %%%%
-\def\bigO#1{O\paren{#1}}
-\def\bigTheta#1{\Theta\paren{#1}}
-\def\bigOmega#1{\Omega\paren{#1}}
-\def\apxO#1{\widetilde{O}\paren{#1}}
-
-\def\poly{\text{poly}}
+\newfunction{\bigO}{O}
+\newfunction{\bigTheta}{\Theta}
+\newfunction{\bigOmega}{\Omega}
+\newfunction{\apxO}{\widetilde{O}}
+\newfunction{\poly}{\operatorname{poly}}
 
 %%%% Graphs %%%%
-\def\cut#1{\partial\paren{#1}}
-\def\outcut#1{\partial^+\paren{#1}}
-\def\incut#1{\partial^-\paren{#1}}
-\def\ball#1{B\paren{#1}}
-\def\inball#1{B^-\paren{#1}}
-\def\outball#1{B^+\paren{#1}}
-\def\inoutball#1{B^\pm\paren{#1}}
-\def\indeg#1{\operatorname{deg}^-\paren{#1}}
-\def\outdeg#1{\operatorname{deg}^+\paren{#1}}
-% \def\dist#1{d\paren{#1}}
-\NewDocumentCommand{\len}{e{_} g e{_}}{%
-  \ell%
-  \IfValueTF{#1}{_{#1}}{%
-    \IfValueT{#3}{_{#3}}%
-  }%
-  \IfValueT{#2}{\paren{#2}}%
-}
-\NewDocumentCommand{\dist}{e{_} g e{_}}{%
-  d%
-  \IfValueTF{#1}{_{#1}}{%
-    \IfValueT{#3}{_{#3}}%
-  }%
-  \IfValueT{#2}{\paren{#2}}%
-}
+\newfunction{\cut}{\partial}
+\newfunction{\outcut}{\partial^+}
+\newfunction{\incut}{\partial^-}
+\newfunction{\ball}{B}
+\newfunction{\outball}{B^+}
+\newfunction{\inball}{B^-}
+\newfunction{\inoutball}{B^\pm}
+\newfunction{\deg}{\operatorname{deg}}
+\newfunction{\indeg}{\operatorname{deg}^-}
+\newfunction{\outdeg}{\operatorname{deg}^+}
+\newfunction{\len}{\ell}
+\newfunction{\dist}{d}
 
-% TODO: Migrate all relevant commands (balls, len, dist, expectation)
-% Also use \operatorname instead of raw \text
 
 %%%% Probability %%%%
-\RenewDocumentCommand{\Pr}{e{_} m}{%
-  \operatorname{Pr}%
-  \IfValueT{#1}{_{#1}}%
-  \left[ #2 \right]%
-}
-
-
-\def\E#1{\text{E}\left[#1\right]}
-\DeclareMathOperator{\Var}{Var}
-\DeclareMathOperator{\Cov}{Cov}
+\newfunction[\brack]{\Pr}{\operatorname{Pr}}
+\newfunction[\brack]{\E}{\operatorname{E}}
+\newfunction{\Var}{\operatorname{Var}}
+\newfunction{\Cov}{\operatorname{Cov}}
 
 \mathchardef\hyphen="2D
 
@@ -142,5 +145,12 @@
 \DeclareMathOperator{\sign}{sign}
 \DeclareMathOperator{\id}{id}
 \DeclareMathOperator{\im}{im}
+
+
+\NewDocumentEnvironment{xydiagram}{ +b }{
+  \[
+    \xymatrix{#1}
+  \]
+}{}
 
 \DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
